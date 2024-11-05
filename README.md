@@ -1,6 +1,6 @@
 # README file
 
-The scripts in this repository are designed to evaluate the performance of the research detailed in [*Quantile and Expectile Copula-Based Hidden Markov Regression Models for the Analysis of the Cryptocurrency Market* by Foroni, Merlo, and Petrella (2024)](https://doi.org/10.48550/arXiv.2307.06400). This evaluation includes a simulation study of copula-based quantile and expectile Hidden Markov Models (CQHMM and CEHMM) and an application of these models to a dataset of financial returns.
+The scripts in this repository can be used to reproduce the results in [*Mid-quantile mixed graphical models with an application to mass public shootings in the United Statest* by L. Merlo, M. Geraci and L. Petrella].
 
 
 ## Prerequisites
@@ -9,38 +9,6 @@ The scripts in this repository are designed to evaluate the performance of the r
 
 -   [R](https://cran.r-project.org/) version 4.1.2 or higher
 -   [RStudio](https://rstudio.com/) version 4.4.0 or higher
-
-### R Packages used (version in parentheses)
-
-- MASS (7.3.60.2)
-- mvtnorm (1.2.4)
-- copula (1.1.3)
-- skewt (1.0)
-- foreach (1.5.2)
-- doParallel (1.0.17)
-- parallel (4.4.0)
-- ald (1.3.1)
-- quantreg (5.97)
-- expectreg (0.52)
-- mclust (6.1.1)
-- cluster (2.1.6)
-- markovchain (0.9.5)
-- rqPen (4.1)
-- lqmm (1.5.8)
-- stats4 (4.4.0)
-- sn (2.1.1)
-- tidyverse (2.0.0)
-- ggplot2 (3.5.1)
-- PerformanceAnalytics (2.0.4)
-- tseries (0.10-56)
-- stats (4.4.0)
-- reshape2 (1.4.4)
-- scales (1.3.0)
-- ggpubr (0.6.0)
-- dotwhisker (0.8.2)
-- patchwork (1.2.0)
-- plotly (4.10.4)
-
 
 ## Simulation_1Y.R
 
