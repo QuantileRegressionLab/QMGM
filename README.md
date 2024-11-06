@@ -14,43 +14,6 @@ The scripts in this repository can be used to reproduce the results in *Mid-quan
 The post-processed dataset is included in the file. The raw data (version 7 - Updated June 2023) can be freely downloaded at [www.theviolenceproject.org/mass-shooter-database](https://www.theviolenceproject.org/mass-shooter-database/).The codebook can be found in the main body of the text and more detailed information can be found at [www.theviolenceproject.org](https://www.theviolenceproject.org/).
 
 
-This script evaluates the performance of the CQHMM and CEHMM models generating data from a bivariate two-states HMM using the following data generating process for $` t = 1,...,T `$,
-
-```math
-\boldsymbol{Y}_t = \boldsymbol{X}_t \boldsymbol{\beta}_k + \boldsymbol{\epsilon}_{t,k}, \quad S_t = k
-```
-
-where $` \boldsymbol{X}_t = (1, X_t)'`$ and the true values of the regression parameters are
-
-```math
-\boldsymbol{\beta}_1 = \begin{pmatrix}
-    -2 & 3 \\
-    1 & -2
-\end{pmatrix} \quad \text{and} \quad \boldsymbol{\beta}_2 = \begin{pmatrix}
-    3 & -2 \\
-    -2 & 1
-\end{pmatrix}.
-```
-
-It is possible to choose between two different scenarios for the transition probability matrix, scenario 1: 
-
-```math
-\boldsymbol{\Pi} = \begin{pmatrix}
-    0.9 & 0.1 \\
-    0.1 & 0.9
-\end{pmatrix},
-```
-
-scenario 2: 
-
-```math
-\boldsymbol{\Pi} = \begin{pmatrix}
-    0.7 & 0.3 \\
-    0.3 & 0.7
-\end{pmatrix}.
-```
-
-
 ### Running the Script
 
 1.  Open the `Simulation_1Y.R` script in RStudio.
