@@ -11,7 +11,7 @@ The scripts in this repository can be used to reproduce the results in *Mid-quan
 -   [RStudio](https://rstudio.com/) version 2024.09.0+375 or higher
 
 ## Dataset
-The post-processed dataset is included in the file. The codebook ...
+The post-processed dataset is included in the file. The codebook of the dataset can be found in the main body of the text and more detailed information can be found at [www.theviolenceproject.org](https://www.theviolenceproject.org/).
 
 
 This script evaluates the performance of the CQHMM and CEHMM models generating data from a bivariate two-states HMM using the following data generating process for $` t = 1,...,T `$,
