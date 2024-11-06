@@ -1,16 +1,18 @@
 # README file
 
-The scripts in this repository can be used to reproduce the results in [*Mid-quantile mixed graphical models with an application to mass public shootings in the United Statest* by L. Merlo, M. Geraci and L. Petrella].
+The scripts in this repository can be used to reproduce the results in *Mid-quantile mixed graphical models with an application to mass public shootings in the United States* by L. Merlo, M. Geraci and L. Petrella.
 
 
 ## Prerequisites
 
 ### Software Requirements
 
--   [R](https://cran.r-project.org/) version 4.1.2 or higher
--   [RStudio](https://rstudio.com/) version 4.4.0 or higher
+-   [R](https://cran.r-project.org/) version 4.4.1 or higher
+-   [RStudio](https://rstudio.com/) version 2024.09.0+375 or higher
 
-## Simulation_1Y.R
+## Dataset
+The post-processed dataset is included in the file. The codebook ...
+
 
 This script evaluates the performance of the CQHMM and CEHMM models generating data from a bivariate two-states HMM using the following data generating process for $` t = 1,...,T `$,
 
