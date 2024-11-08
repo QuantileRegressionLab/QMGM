@@ -5,16 +5,21 @@ The scripts in this repository can be used to reproduce the results in *Mid-quan
 
 ## Prerequisites
 
-### Software Requirements
+### Software requirements
 
 -   [R](https://cran.r-project.org/) version 4.4.1 or higher
 -   [RStudio](https://rstudio.com/) version 2024.09.0+375 or higher
+-   [Qtools](https://github.com/marco-geraci/Qtools) version 1.5.9 or higher
 
 ## Dataset
 The post-processed dataset is included in the file. The raw data (version 7 - Updated June 2023) can be freely downloaded at [www.theviolenceproject.org/mass-shooter-database](https://www.theviolenceproject.org/mass-shooter-database/).The codebook can be found in the main body of the text and more detailed information can be found at [www.theviolenceproject.org](https://www.theviolenceproject.org/).
 
 
-### Running the Script
+##
+This script can be used to reproduce Figure ...
+
+
+### Running the script
 
 1.  Open the `Simulation_1Y.R` script in RStudio.
 2.  At line 26, select the type of model (`expectile` or `quantile` for CEHMM and CQHMM respectively) to be used.
