@@ -10,7 +10,6 @@ Crime = read_excel("Mass_Shootings.xlsx", sheet = "Crime", skip = 1)
 Traumas = read_excel("Mass_Shootings.xlsx", sheet = "Traumas", skip = 1)
 Crisis = read_excel("Mass_Shootings.xlsx", sheet = "Crisis", skip = 1)
 Mental = read_excel("Mass_Shootings.xlsx", sheet = "Mental", skip = 1)
-# Mental = Mental[,-9]
 Social = read_excel("Mass_Shootings.xlsx", sheet = "Social", skip = 1)
 Motivation = read_excel("Mass_Shootings.xlsx", sheet = "Motivation", skip = 1)
 Victims = read_excel("Mass_Shootings.xlsx", sheet = "Victims", skip = 0, col_types = rep("numeric", 2))
@@ -50,8 +49,7 @@ names(DATA) = as.character(c("Killed", "Injured", "Firearms.brought.to.the.scene
 
 DATA = KNNimp(data = DATA, k = round(sqrt(nrow(na.omit(DATA)))), meth = "median")
 apply(DATA[,1:8], 2, table)
-# DATA %>% mutate_at(vars(names(DATA)[1:8]), list(~ round(., 0)))
-# DATA = DATA[DATA$.Number.Injured. < 866,]
+
 
 n = nrow(DATA)
 p = ncol(DATA)
@@ -74,12 +72,11 @@ registerDoParallel(cl)
 invisible(clusterEvalQ(cl = cl, source("WorkHorse.R")))
 
 
-tau = 0.5
-# tau = c(0.2, 0.5, 0.8)
-# tau = seq(1/8, 7/8, by = 1/8)
-rhol = exp(seq(log(1e-03), log(5), length.out = 1e2))  # seq(0, 1, length.out = 50)
+# tau = 0.5 # median model L = 1
+# tau = c(0.2, 0.5, 0.8) # L = 3
+tau = seq(1/8, 7/8, by = 1/8) # octile model L = 7
+rhol = exp(seq(log(1e-03), log(5), length.out = 1e2))
 thresh = 1e-07
-# type.var = c(rep("p", 2), rep("g", 2), rep("p", 10))
 type.var = c(rep("p", 3), rep("g", 2), rep("p", 3), rep("g", 6))
 vertex.shape = ifelse(type.var == "g", "circle", "square")
 
@@ -92,12 +89,6 @@ for(b in 1:B) {
   DATA_boot = DATA[boot.id,]
   DATA_boot[,type.var == "g"] = apply(DATA_boot[,type.var == "g"], 2, scale)
   DATA_boot$Injured = DATA_boot$Injured + 0.1
-  # DATA_boot$Social = DATA_boot$Social + 0.1
-  # DATA_boot$Traumas = DATA_boot$Traumas + 0.1
-  # DATA_boot$Crisis = DATA_boot$Crisis + 0.1
-  # DATA_boot$Mental = DATA_boot$Mental + 0.1
-  # DATA_boot$Motivation = DATA_boot$Motivation + 0.1
-  # DATA_boot$Crime = DATA_boot$Crime + 0.1
   
   midFit = midCDF_est(Obs = DATA_boot)
   output = foreach(t = 1:length(tau), .packages = c("foreach", "quantreg", "Qtools", "np", "glmnet")) %do% {
@@ -133,11 +124,6 @@ for(b in 1:B) {
   edgecolorA.opt[apply(edgecolor.array, 1:2, function(x) (!any(x == "red")) * any(x == "darkgreen")) == 1] = "darkgreen"
   edgecolorA.opt[apply(edgecolor.array, 1:2, function(x) (any(x == "red")) * (!any(x == "darkgreen"))) == 1] = "red"
   edgecolorA.opt.array[,,b] = edgecolorA.opt
-  
-  # sign.list = Reduce("+", lapply(1:length(tau), function(t) output[[t]][[rho.opt.index[[2]]]]$signsAdj))
-  # edgecolorA.opt[sign.list == (1 * length(tau))] = edgecolorA.opt[sign.list == (2 * length(tau))] = "darkgreen"
-  # edgecolorA.opt[sign.list == -(1 * length(tau))] = edgecolorA.opt[sign.list == -(2 * length(tau))] = "red"
-  # edgecolorA.opt.array[,,b] = edgecolorA.opt
 }
 
 100*apply(wA.opt.array != 0, 1:2, mean)
@@ -148,12 +134,10 @@ sum((wA.opt.ave != 0) / 2) / choose(p, 2)
 wA.opt.ave[abs(wA.opt.ave) <= 1e-04] = 0
 
 groupsV = list("Shooting" = 1:3, "Characteristics" = c(4,5,7,8), "Background" = c(6,9:p))
-# ("Victims" = 1:, "Background" = 3:7, "Weapons" = 8,
-#                "Social" = 9, "Crime" = 10, "Trauma" = 11, "Crisis" = 12, "Mental" = 13, "Motivation" = p)
 namesV = gsub(".", " ", names(DATA), fixed = T)
 
 
-jpeg("Mass_Shootings_ave_72.jpg", height=2*1000, width=2*1500, unit='px')
+jpeg("Mass_Shootings_qmgm_7.jpg", height=2*1000, width=2*1500, unit='px')
 qgraph(wA.opt.ave,
        layout = "spring", repulsion = 1,
        edge.color = apply(edgecolorA.opt.array, 1:2, FUN = function(x) names(sort(-table(x)))[1]),
@@ -203,7 +187,7 @@ for(b in 1:B) {
       } else {
         beta_vector = sum(mgm.output[[r]]$nodemodels[[j]]$model != 0)
       }
-      mgm.aic[j,r] = -2*LL_models[j,r] + 2*1*beta_vector # log(p-1)
+      mgm.aic[j,r] = -2*LL_models[j,r] + 2*1*beta_vector
       mgm.bic[j,r] = -2*LL_models[j,r] + log(n)*1*beta_vector
       mgm.bicp[j,r] = -2*LL_models[j,r] + log(n)*log(p-1)*beta_vector
       mgm.bic2p[j,r] = -2*LL_models[j,r] + log(n)*log(p-1)/2*beta_vector
@@ -221,7 +205,6 @@ for(b in 1:B) {
   mgm.adj = est.A.mgm[[rho.opt.mgm.index[2]]]
   wA.opt.mgm.array[,,b] = mgm.adj
   edgecolorA.opt.mgm.array[,,b] = mgm.output[[rho.opt.mgm.index[2]]]$pairwise$edgecolor
-  # mgm.ebic = sum(sapply(1:p, function(j) mgm.output$nodemodels[[j]]$EBIC))
 }
 
 100*apply(wA.opt.mgm.array != 0, 1:2, mean)
@@ -231,7 +214,7 @@ wA.opt.mgm.ave = (100 * apply(wA.opt.mgm.array != 0, 1:2, mean) >= 0) * apply(wA
 sum((wA.opt.mgm.ave != 0) / 2) / choose(p, 2)
 wA.opt.mgm.ave[abs(wA.opt.mgm.ave) <= 1e-04] = 0
 
-jpeg("Mass_Shootings_ave_mgm2.jpg", height=2*1000, width=2*1500, unit='px')
+jpeg("Mass_Shootings_mgm.jpg", height=2*1000, width=2*1500, unit='px')
 qgraph(wA.opt.mgm.ave, 
        layout = "spring", repulsion = 1,
        edge.color = apply(edgecolorA.opt.mgm.array, 1:2, FUN = function(x) names(sort(-table(x)))[1]),
