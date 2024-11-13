@@ -61,6 +61,7 @@ pc = ncol(DATA)
 # QMGM --------------------------------------------------------------------
 library(qgraph)
 library(igraph)
+library(mgm)
 library(foreach)
 library(parallel)
 library(doParallel)
@@ -74,8 +75,8 @@ invisible(clusterEvalQ(cl = cl, source("WorkHorse.R")))
 
 
 tau = 0.5
-tau = c(0.2, 0.5, 0.8)
-tau = seq(1/8, 7/8, by = 1/8)
+# tau = c(0.2, 0.5, 0.8)
+# tau = seq(1/8, 7/8, by = 1/8)
 rhol = exp(seq(log(1e-03), log(5), length.out = 1e2))  # seq(0, 1, length.out = 50)
 thresh = 1e-07
 # type.var = c(rep("p", 2), rep("g", 2), rep("p", 10))
@@ -182,6 +183,7 @@ for(b in 1:B) {
   boot.id = sample(x = 1:n, size = n, replace = F)
   DATA_mgm_boot = DATA[boot.id,]
   DATA_mgm_boot[,type.var.mgm == "g"] = apply(DATA_mgm_boot[,type.var.mgm == "g"], 2, scale)
+  DATA_mgm_boot = as.matrix(DATA_mgm_boot)
   
   mgm.output = foreach(r = 1:length(rhol), .packages = c("mgm")) %dopar% {
     mgm(data = DATA_mgm_boot, type = type.var.mgm, lambdaSeq = rhol[r], lambdaSel = "EBIC",
