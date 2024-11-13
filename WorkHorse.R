@@ -7,13 +7,10 @@ cmidecdf.fit.pen = function(x, y, intercept, ecdf_est, npc_args = list(), theta 
   n <- length(y)
   if(length(unique(y)) == n) {
     x.er <- extendrange(y, f = 1)
-    # yo = unique(round(sort(y), digits = 1))
     yo <- unique(na.omit(sort(c(seq(x.er[1], x.er[2], length = 2 * round(sqrt(n) * 3.9)),
                                 quantile(y, c(0.01,0.05,0.25,0.50,0.75,0.95,0.99), na.rm = TRUE)))))
   } else {
     yo <- sort(unique(y))
-    # x.er <- extendrange(yo, f = c(0, .1))
-    # yo <- round(sort(unique(seq(0, x.er[2], length = round(2 * sqrt(n) * 3.9)))))
   }
   K <- length(yo)
   Z <- mapply(function(t, y) (y <= t), (yo), MoreArgs = list(y = (y)))
@@ -97,11 +94,8 @@ fit.cat = function(midFit, x, tau, offset, binary, lambda, rho, thresh) {
   # penalized LASSO
   if (length(unique(B)) == 1) {
     fit.par <- as.numeric(c(B[1], rep(0, ncol(x) - 1)))
-    # fit.par <- as.numeric(coef(glmnet(x = x[,-1], y = jitter(B, factor = 1e-06), family = "gaussian", lambda = rho * 1, alpha = 1,
-    #                                   thresh = thresh)))
   } else {
-    fit.par <- as.numeric(coef(glmnet(x = x[,-1], y = B, family = "gaussian", lambda = rho * 1, alpha = 1,
-                                     thresh = thresh))) # penalty.factor = apply(x[,-1], 2, sd), , standardize.response = F, standardize = T
+    fit.par <- as.numeric(coef(glmnet(x = x[,-1], y = B, family = "gaussian", lambda = rho * 1, alpha = 1, thresh = thresh)))
   }
   
   return(list(beta = fit.par, B = B))
@@ -127,9 +121,8 @@ midCDF_est = function(Obs) {
     ff = as.formula(paste0(Obs.names[j], " ~ ", paste(Obs.names[-j], collapse = " + ")))
     y = Obs[,j]
     x = model.matrix(ff, Obs)
-    # x.SIR = cbind(1, components(SIRasymp(X = x[,-1], h = 4, y = y, k = 3), which = "k"))
     
-    cmidecdf.fit.pen(x = x, y = y, ecdf_est = "logit") #, cykertype = "epanechnikov" ftol = .1, tol = .1)
+    cmidecdf.fit.pen(x = x, y = y, ecdf_est = "logit")
   }
   
   return(midFit)
@@ -150,10 +143,6 @@ QMGM = function(Obs, tau, midFit, rho, offset.var, type.var, ruleReg, thresh) {
     ff = as.formula(paste0(Obs.names[j], " ~ ", paste(Obs.names[-j], collapse = " + ")))
     y = Obs[,j]
     x = model.matrix(ff, Obs)
-    # x = as.data.frame(x)
-    # for(j in which(1*apply(x, 2, function(r) length(table(r)) == 2) == 1)) {
-    #   x[,j] = factor(x[,j])
-    # }
 
     # is the response continuous?
     if(type.var[j] == "g") lambda = NULL else lambda = 0
@@ -161,7 +150,6 @@ QMGM = function(Obs, tau, midFit, rho, offset.var, type.var, ruleReg, thresh) {
     offset = offset.var[,j]
     # is the response binary?
     binary = setequal(sort(unique(y)), c(0, 1))
-    # binary = ifelse(length(table(y)) == 2, T, F)
     
     # response on the scale of linear predictor
     if(!is.null(lambda)){
@@ -196,7 +184,7 @@ QMGM = function(Obs, tau, midFit, rho, offset.var, type.var, ruleReg, thresh) {
   Std.Residuals = apply(Residuals, 2, scale, center = F)
   names(betahat) = names(Fitted) = names(Hy) = names(Yhat) = names(Residuals) = Obs.names
   score = sum(log(colSums(check(Residuals, tau = tau))))
-  gAIC = score + 2 * 1 * (sum(unlist(betahat) != 0) - 0) / (2 * n) # log(p - 1)
+  gAIC = score + 2 * 1 * (sum(unlist(betahat) != 0) - 0) / (2 * n)
   gBIC = score + log(n) * 1 * (sum(unlist(betahat) != 0) - 0) / (2 * n)
   gBICp = score + log(n) * log(p - 1) * (sum(unlist(betahat) != 0) - 0) / (2 * n)
   gBIC2p = score + log(n) * log(p - 1)/2 * (sum(unlist(betahat) != 0) - 0) / (2 * n)
