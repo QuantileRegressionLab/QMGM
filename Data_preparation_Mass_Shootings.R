@@ -70,10 +70,10 @@ summary.stats = function(data) {
   data_binary = data[,-nonbinary]
   
   out_nonbinary = round(t(apply(data_nonbinary, 2, function(x) c(min(x), quantile(x, probs = tau)[1], mean(x), quantile(x, probs = tau)[2], 
-                                                                 quantile(x, probs = tau)[3], max(x)))), 3)
+                                                                 quantile(x, probs = tau)[3], max(x)))), 2)
   colnames(out_nonbinary) = c("Minimum", "First quartile", "Mean", "Median", "Third quartile", "Maximum")
   
-  out_binary = round(t(apply(data_binary, 2, function(x) c(sum(x == 1), 100 * mean(x)))), 3)
+  out_binary = round(t(apply(data_binary, 2, function(x) c(sum(x == 1), 100 * mean(x)))), 2)
   colnames(out_binary) = c("Frequency", "Proportion (%)")
   
   return(list(out_nonbinary = out_nonbinary, out_binary = out_binary))
@@ -100,10 +100,5 @@ wnd = 5
 plot(y = Deaths$x, x = Deaths$Group.1, type = "h", xlab = "Year", ylab = "Fatalities", lwd = 2)
 lines(y = rollapply(Deaths$x, FUN = mean, width = wnd), x = tail(Deaths$Group.1, 54 - wnd + 1), type = "l", col = "red", lwd = 4)
 
-# lines(y = No_shoot$x, x = Deaths$Group.1, type = "l", col = "blue", lwd = 2)
-# lines(y = Deaths$x / No_shoot$x, x = Deaths$Group.1, type = "l", col = "red", lwd = 2)
-# lines(y = Injured$x / No_shoot$x, x = Deaths$Group.1, type = "l", col = "blue", lwd = 2)
-
 plot(y = No_shoot$x, x = Deaths$Group.1, type = "h", xlab = "Year", ylab = "Shootings", lwd = 2)
 lines(y = rollapply(No_shoot$x, FUN = mean, width = wnd), x = tail(Deaths$Group.1, 54 - wnd + 1), type = "l", col = "red", lwd = 4)
-
