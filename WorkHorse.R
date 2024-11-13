@@ -1,3 +1,64 @@
+check <- function(x, tau = .5){
+  x * (tau - (x<0))
+}
+
+cmidecdf.fit.pen = function(x, y, intercept, ecdf_est, npc_args = list(), theta = NULL){
+  p <- ncol(x)
+  n <- length(y)
+  if(length(unique(y)) == n) {
+    x.er <- extendrange(y, f = 1)
+    # yo = unique(round(sort(y), digits = 1))
+    yo <- unique(na.omit(sort(c(seq(x.er[1], x.er[2], length = 2 * round(sqrt(n) * 3.9)),
+                                quantile(y, c(0.01,0.05,0.25,0.50,0.75,0.95,0.99), na.rm = TRUE)))))
+  } else {
+    yo <- sort(unique(y))
+    # x.er <- extendrange(yo, f = c(0, .1))
+    # yo <- round(sort(unique(seq(0, x.er[2], length = round(2 * sqrt(n) * 3.9)))))
+  }
+  K <- length(yo)
+  Z <- mapply(function(t, y) (y <= t), (yo), MoreArgs = list(y = (y)))
+  if(missing(intercept) & all(x[,1] == 1)) intercept <- TRUE
+  
+  
+  if(ecdf_est %in% c("logit", "probit", "cloglog")){
+    fitbin <- apply(Z, 2, function(z, x, link) suppressWarnings(glm(z ~ x - 1, epsilon = 1e-10, maxit = 1e3, family = binomial(link))), x = x, link = ecdf_est)
+    Fhat <- sapply(fitbin, predict, type = "response")
+    # Fse <- sapply(fitbin, function(x) predict(x, type = "response", se.fit = TRUE)$se.fit)
+    
+    # fitbin <- apply(Z, 2, function(z, x, link) suppressWarnings(cv.glmnet(x = x, y = z, family = binomial(link),
+    #                 lambda = lambda)), x = x[,-1], link = ecdf_est)
+    # Fhat <- sapply(fitbin, predict, type = "response", newx = x[,-1])
+    
+    bhat <- sapply(fitbin, coef) # p x K
+    linkinv <- family(fitbin[[1]])$linkinv
+  }
+  
+  
+  # rearrange if CDF is not monotone
+  for(j in 1:n){
+    tmp <- Fhat[j,]
+    if(any(diff(tmp) < 0)){
+      sf <- rearrange(stepfun(yo, c(-Inf, tmp)))
+      Fhat[j,] <- sf(yo)
+    }
+  }
+  
+  M <- apply(Fhat, 1, diff)
+  if(ncol(Fhat) > 2) M <- t(M)
+  G <- Fhat[,-1] - 0.5*M
+  G <- cbind(Fhat[,1]/2, G)
+  if(length(unique(y)) == n) G <- Fhat
+  r <- c(max(G[,1]), min(G[,ncol(G)]))
+  
+  attr(G, "range") <- r
+  ecdf_fit <- if(ecdf_est == "npc") bw else list(coef = bhat, linkinv = linkinv)
+  
+  ans <- list(G = G, Fhat = Fhat, yo = yo, ecdf_fit = ecdf_fit, ecdf_est = ecdf_est) # Fse = Fse
+  class(ans) <- "cmidecdf"
+  
+  return(ans)
+}
+
 fit.cat = function(midFit, x, tau, offset, binary, lambda, rho, thresh) {
   n <- nrow(x)
   k <- length(midFit$yo)	
@@ -34,13 +95,17 @@ fit.cat = function(midFit, x, tau, offset, binary, lambda, rho, thresh) {
   }
   
   # penalized LASSO
-  fit.par <- as.numeric(coef(glmnet(x = x[,-1], y = B, family = "gaussian", lambda = rho, alpha = 1, 
-                                     thresh = thresh))) #  penalty.factor = apply(x[,-1], 2, sd),
+  if (length(unique(B)) == 1) {
+    fit.par <- as.numeric(c(B[1], rep(0, ncol(x) - 1)))
+    # fit.par <- as.numeric(coef(glmnet(x = x[,-1], y = jitter(B, factor = 1e-06), family = "gaussian", lambda = rho * 1, alpha = 1,
+    #                                   thresh = thresh)))
+  } else {
+    fit.par <- as.numeric(coef(glmnet(x = x[,-1], y = B, family = "gaussian", lambda = rho * 1, alpha = 1,
+                                     thresh = thresh))) # penalty.factor = apply(x[,-1], 2, sd), , standardize.response = F, standardize = T
+  }
   
   return(list(beta = fit.par, B = B))
 }
-
-
 
 midrqLoss = function(b, xx, midFit, tau, rho) {
   
@@ -56,98 +121,137 @@ midCDF_est = function(Obs) {
   n = nrow(Obs)
   p = ncol(Obs)
   Obs.names = names(Obs)
-
+  
   # Estimate mid-CDF
-  midFit = foreach(j = 1:p, .packages = c("quantreg", "Qtools", "np")) %dopar% {
+  midFit = foreach(j = 1:p, .packages = c("quantreg", "Qtools")) %dopar% {
     ff = as.formula(paste0(Obs.names[j], " ~ ", paste(Obs.names[-j], collapse = " + ")))
     y = Obs[,j]
     x = model.matrix(ff, Obs)
-    # is the response binary?
-    binary = setequal(sort(unique(y)), c(0,1))
-    # is the response categorical?
-    # categorical = length(unique(y)) == n
-    categorical = T
+    # x.SIR = cbind(1, components(SIRasymp(X = x[,-1], h = 4, y = y, k = 3), which = "k"))
     
-    if(categorical) {
-      cmidecdf.fit(x = x, y = y, ecdf_est = "logit")
-    } else {
-      list(dist = npcdistbw(xdat = x[,-1], ydat = y)) #, cykertype = "epanechnikov" ftol = .1, tol = .1)
-           # dens = npcdensbw(xdat = x[,-1], ydat = y, cykertype = "epanechnikov", nmulti = 2, method = "cv.ls"))
-    }
+    cmidecdf.fit.pen(x = x, y = y, ecdf_est = "logit") #, cykertype = "epanechnikov" ftol = .1, tol = .1)
   }
   
   return(midFit)
 }
 
 
-QMGM = function(Obs, tau, midFit, rho, offset.var, type.var, thresh) {
+QMGM = function(Obs, tau, midFit, rho, offset.var, type.var, ruleReg, thresh) {
   
   n = nrow(Obs)
   p = ncol(Obs)
   Obs.names = names(Obs)
-  if(missing(offset.var)) offset.var = rep(0, n)
+  if(missing(offset.var)) offset.var = matrix(0, n, p)
   
+
   # fit model
   fit = list()
   for (j in 1:p) {
     ff = as.formula(paste0(Obs.names[j], " ~ ", paste(Obs.names[-j], collapse = " + ")))
     y = Obs[,j]
     x = model.matrix(ff, Obs)
+    # x = as.data.frame(x)
+    # for(j in which(1*apply(x, 2, function(r) length(table(r)) == 2) == 1)) {
+    #   x[,j] = factor(x[,j])
+    # }
+
     # is the response continuous?
     if(type.var[j] == "g") lambda = NULL else lambda = 0
     # check offset
     offset = offset.var[,j]
     # is the response binary?
     binary = setequal(sort(unique(y)), c(0, 1))
-    # is the response categorical?
-    # categorical = length(unique(y)) == n
-    categorical = T
+    # binary = ifelse(length(table(y)) == 2, T, F)
     
-    if(categorical) {
-      fit[[j]] = fit.cat(midFit = midFit[[j]], x = x, tau = tau, offset = offset, binary = binary, lambda = lambda, rho = rho, thresh = thresh)
-      yhat = x%*%fit[[j]]$beta + offset
-      if(!is.null(lambda)) {
-        if(binary) {
-          fit[[j]]$yhat = apply(yhat, 2, invao, lambda = lambda)
-        } else {
-          fit[[j]]$yhat = apply(yhat, 2, invbc, lambda = lambda)
-        }
+    # response on the scale of linear predictor
+    if(!is.null(lambda)){
+      if(binary){
+        hy = ao(y, lambda)
       } else {
-        fit[[j]]$yhat = yhat
+        if(any(y <= 0)) stop("The response must be strictly positive")
+        hy = bc(y, lambda)
+      }
+    } else {hy = y}
+    
+    fit[[j]] = fit.cat(midFit = midFit[[j]], x = x, tau = tau, offset = offset, binary = binary, lambda = lambda, rho = rho, thresh = thresh)
+    fit[[j]]$hy = hy
+    yhat = x%*%fit[[j]]$beta + offset
+    fit[[j]]$yhat = yhat
+    if(!is.null(lambda)) {
+      if(binary) {
+        fit[[j]]$fitted.values = apply(yhat, 2, invao, lambda = lambda)
+      } else {
+        fit[[j]]$fitted.values = apply(yhat, 2, invbc, lambda = lambda)
       }
     } else {
-      b0 = as.numeric(coef(glmnet(x = x[,-1], y = y, alpha = 1, lambda = rho)))
-      q0 = npqreg(bws = midFit[[j]]$dist, tau = tau, itmax = 1e3)$quantile
-      fit[[j]] = list(beta = as.numeric(coef(glmnet(x = x[,-1], y = q0, alpha = 1, lambda = rho))))
-      # fit[[j]] = proxGD(x = x[,-1], y = y, tau = tau, b0 = b0, bw = midFit[[j]]$dist, bwd = midFit[[j]]$dens, 
-      #              lambda = rho, alpha = 100, iter = 1e2, conv = 1e-04)
-      # fit[[j]] = optim(par = b0, fn = midrqLoss, midFit = midFit[[j]], x = x[,-1], tau = tau, rho = rho, 
-      #                  method = "BFGS", control = list(abstol = 1e-06, reltol = 1e-06))
-      # fit[[j]]$par = ifelse(abs(fit[[j]]$par) < thresh, 0, fit[[j]]$par)
-      fit[[j]]$yhat = x%*%fit[[j]]$beta
+      fit[[j]]$fitted.values = yhat
     }
   }
   
   betahat = lapply(1:p, function(j) fit[[j]]$beta)
-  yhat = sapply(1:p, function(j) fit[[j]]$yhat)
-  names(betahat) = names(yhat) = Obs.names
-  score = -sum(.5 * (Obs - yhat)^2)
-  # llscore = sum(log(colSums((Obs - yhat)^2)))
-  gAIC = -2 * score + 2 * sum(unlist(betahat) != 0)
-  gBIC = -2 * score + log(n) * sum(unlist(betahat) != 0)
-  # gAIC = n * llscore + 2 * sum(unlist(betahat) != 0)
-  # gBIC = n * llscore + log(n) * sum(unlist(betahat) != 0)
-  gcrit = c(gAIC, gBIC)
+  Hy = sapply(1:p, function(j) fit[[j]]$hy)
+  Yhat = sapply(1:p, function(j) fit[[j]]$yhat)
+  Fitted = sapply(1:p, function(j) fit[[j]]$fitted.values)
+  Residuals = Obs - Fitted
+  Std.Residuals = apply(Residuals, 2, scale, center = F)
+  names(betahat) = names(Fitted) = names(Hy) = names(Yhat) = names(Residuals) = Obs.names
+  score = sum(log(colSums(check(Residuals, tau = tau))))
+  gAIC = score + 2 * 1 * (sum(unlist(betahat) != 0) - 0) / (2 * n) # log(p - 1)
+  gBIC = score + log(n) * 1 * (sum(unlist(betahat) != 0) - 0) / (2 * n)
+  gBICp = score + log(n) * log(p - 1) * (sum(unlist(betahat) != 0) - 0) / (2 * n)
+  gBIC2p = score + log(n) * log(p - 1)/2 * (sum(unlist(betahat) != 0) - 0) / (2 * n)
+  gBIC3p = score + log(n) * log(p - 1)/3 * (sum(unlist(betahat) != 0) - 0) / (2 * n)
   
-  # Adjacency matrix
-  A = matrix(NA, p, p)
+  gEBIC0 = score + (log(n) + 4 * 0 * log(p - 1)) * (sum(unlist(betahat) != 0) - 0) / (2 * n) 
+  gEBIC5 = score + (log(n) + 4 * 0.5 * log(p - 1)) * (sum(unlist(betahat) != 0) - 0) / (2 * n) 
+  gEBIC1 = score + (log(n) + 4 * 1 * log(p - 1)) * (sum(unlist(betahat) != 0) - 0) / (2 * n) 
+  gcrit = c(gAIC, gBIC, gBICp, gBIC2p, gBIC3p, gEBIC0, gEBIC5, gEBIC1)
+  
+  # Adjacency matrix (weighted and signs matrices)
+  A = wA = signsA = matrix(NA, p, p)
   for(i in 1:p) {
     A[i,] = as.numeric(append(x = betahat[[i]][-1], values = 0, i - 1) != 0)
+    wA[i,] = abs(append(x = betahat[[i]][-1], values = 0, i - 1))
+    signsA[i,] = sign(append(x = betahat[[i]][-1], values = 0, i - 1))
   }
-  # A = 1 * ((A + t(A)) != 0) # OR
-  A = 1 * ((A + t(A)) == 2) # AND
+  wA = 0.5 * (wA + t(wA))
+  signsA = signsA + t(signsA)
   
-  return(list(rho = rho, betahat = betahat, yhat = yhat, Adj.mat = A, Fitted = yhat, score = score, gcrit = gcrit))
+  if(ruleReg == "OR") {
+    A = 1 * ((A + t(A)) != 0) # OR
+  } else if (ruleReg == "AND") {
+    A = 1 * ((A + t(A)) == 2) # AND
+  }
+  wA = wA * A
+  signsA = signsA * A
+  signsA[A == 0] = NA
+  sign_colors = matrix("darkgrey", p, p)
+  sign_colors[signsA == 1] = sign_colors[signsA == 2] = "darkgreen"
+  sign_colors[signsA == -1] = sign_colors[signsA == -2] = "red"
+  
+  # save in output
+  out_obj = list()
+  out_obj$tau = tau
+  # out_obj$x = x
+  # out_obj$y = y
+  out_obj$offset = offset
+  out_obj$lambda = lambda
+  out_obj$binary = binary
+  out_obj$intercept
+  out_obj$type.var = type.var
+  out_obj$rho = rho
+  out_obj$betahat = betahat
+  out_obj$Hy = Hy
+  out_obj$Yhat = Yhat
+  # out_obj$Fitted = Fitted
+  # out_obj$residuals = Residuals
+  out_obj$Adj = A
+  out_obj$wAdj = wA
+  out_obj$signsAdj = signsA
+  out_obj$edgecolorAdj = sign_colors
+  out_obj$gcrit = gcrit
+ 
+  return(out_obj)
 }
 
 
@@ -175,4 +279,96 @@ Graph.performance = function(est.A, true.adj) {
   names(out) = c("Precision", "Recall", "F1-score", "Matthews CC", "Accuracy")
 
   return(out)
+}
+
+# Graph summary
+Graph.summary = function(est.graph) {
+  
+  p = length(V(est.graph))
+  centrality <- data.frame(row.names   = V(est.graph)$name,
+                           Degree      = degree(graph = est.graph, mode = "all"),
+                           Closeness   = closeness(graph = est.graph, mode = "all"),
+                           Betweenness = betweenness(graph = est.graph, directed = F),
+                           Eigenvector = eigen_centrality(graph = est.graph)$vector,
+                           Eccentricity = eccentricity(graph = est.graph, mode = "all"))
+  
+  out_obj = list()
+  out_obj$centrality = centrality
+  out_obj$n.edges = 0.5 * sum(as_adjacency_matrix(est.graph))
+  out_obj$fr.edges = 0.5 * sum(as_adjacency_matrix(est.graph)) / choose(p, 2)
+  
+  return(out_obj)
+}
+
+# Compute the likelihood for MGM
+calcLL <- function(X,
+                   y,
+                   beta_vector,
+                   type,
+                   level,
+                   v,
+                   weights,
+                   LLtype = 'model')
+  
+  
+{
+  
+  if(missing(level)) stop('No levels passed to calcLL !')
+  
+  # This function calculates three different LL:
+  # 1) LLtype = 'model': The LL of a given model via fit
+  # 2) LLtype = 'nullmodel': The LL of the Null (Intercept) Model
+  # 3) LLtype = 'saturated': The LL of the saturated model
+  
+  X <- as.matrix(X)
+  y <- as.vector(y)
+  
+  n <- nrow(X)
+  if(missing(weights)) weights <- rep(1, n)
+  
+  if(LLtype == 'model') {
+    
+    if(type[v] == 'g') {
+      beta_vector <- matrix(beta_vector, ncol = 1)
+      predicted_mean <- cbind(rep(1, n), X) %*% as.vector(beta_vector)
+      sd_residual <- sd(y-predicted_mean)
+      LL_model <- dnorm(y, mean = predicted_mean, sd = sd_residual, log = TRUE)
+      mean_LL_model <- sum(LL_model * weights)
+    }
+    
+    if(type[v] == 'p') {
+      beta_vector <- matrix(beta_vector, ncol = 1)
+      predicted_mean <- cbind(rep(1, n), X) %*% as.vector(beta_vector)
+      LL_model <- dpois(y, exp(predicted_mean), log = TRUE)
+      mean_LL_model <- sum(LL_model * weights)
+    }
+    
+    if(type[v] == 'c') {
+      
+      n_cats <- level[v] # number of levels
+      
+      ## Compute LL (see http://www.stanford.edu/~hastie/Papers/glmnet.pdf, equation 22)
+      m_respdum <- matrix(NA, n, n_cats) # dummy for data
+      m_coefs <- matrix(NA, n, n_cats) # dummy for coefficients
+      cats <- unique(y)
+      
+      LL_n <- rep(NA, n) # Storage
+      m_LL_parts <- matrix(NA, nrow = n, ncol=n_cats+1)
+      
+      for(catIter in 1:n_cats) {
+        m_respdum[,catIter] <- (y==cats[catIter])*1 # dummy matrix for categories
+        m_coefs[,catIter] <- cbind(rep(1, n), X) %*% as.vector(beta_vector[[catIter]])
+        m_LL_parts[,catIter] <- m_respdum[, catIter] * m_coefs[, catIter]
+      }
+      
+      m_LL_parts[, n_cats+1] <- - log(rowSums(exp(m_coefs))) # the log part, see eq (22)
+      LL_n <- rowSums(m_LL_parts) # sum up n_cat + 1 parts
+      mean_LL_model <- sum(LL_n * weights) # apply weighting
+      
+    }
+    
+  }
+  
+  return(mean_LL_model)
+  
 }
